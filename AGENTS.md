@@ -14,7 +14,7 @@ poc_slack ──MCP──► poc_mcp (meeting hub) ──HTTP POST /tasks──�
 
 | Repo | Local path | Role |
 |---|---|---|
-| `poc_jira` | `../poc_jira/jira_task_creator` | Jira Task Service (this repo) |
+| `poc_jira` | `../poc_jira/jira_task_creator` | Jira Task Service (this repo): github.com/brindeshwar/poc_jira |
 | `poc_mcp` | `../../poc_mcp` | MCP hub; the main caller. **Owns the integration contract:** `../../poc_mcp/docs/INTEGRATION.md` |
 | `poc_slack` | `../../poc_slack` | Slack bot (reaches this service only through the hub) |
 

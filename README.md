@@ -1,5 +1,6 @@
 # Jira Task Service
 
+[![CI](https://github.com/brindeshwar/poc_jira/actions/workflows/ci.yml/badge.svg)](https://github.com/brindeshwar/poc_jira/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
