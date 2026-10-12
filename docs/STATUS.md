@@ -11,11 +11,11 @@
 | Service starts; `/health` | ✅ verified | 2026-10-13 |
 | Real Jira (dry run) | ⛔ Jira site returned 404 "Site temporarily unavailable" | 2026-10-13 |
 | Real Gemini extraction | ⛔ Gemini key invalid | 2026-10-13 |
-| Docker image | ⚠️ not built locally (Docker daemon not running); CI `docker` job builds it | 2026-10-13 |
+| Docker image | ✅ builds in CI (`Docker build` job, required check) | 2026-10-13 |
 
 ## Current version
 
-`0.2.0` (unreleased; branch `refactor/v2-connected-system`). Published at https://github.com/brindeshwar/poc_jira on 2026-10-13 (`main` = v0.1.0).
+`0.2.0`, released 2026-10-13 (tag `v0.2.0`, GitHub release). Published at https://github.com/brindeshwar/poc_jira on 2026-10-13 (`main` = v0.1.0).
 
 ## Known issues / blockers
 
@@ -42,8 +42,22 @@
 | 2026-10-13 | Direct REST v3 via httpx instead of the `jira` library | old search endpoint removed by Atlassian; easy to fake in tests |
 | 2026-10-13 | Per-item failures inside a 200 response | one bad item shouldn't block the others |
 | 2026-10-13 | Keep the v1 `/create-jira-tasks` endpoint (deprecated) | backward compatibility for existing demos |
+| 2026-10-13 | Protect `main`: PR + 5 required checks, linear history, rebase-only merges, 0 approvals | keeps `main` always green; linear history keeps the Conventional Commits readable; solo maintainer can't self-approve |
 
 ## Handoff log
+
+### 2026-10-13: Claude (Opus 5.5) · v0.2.0 released, branch protection
+**Changed:** merged the v2 PR (rebase), tagged `v0.1.0` (original POC) and `v0.2.0`, and published the
+GitHub release. Protected `main`: PR required, 5 required checks (lint, tests 3.12/3.13, secret scan,
+Docker build) that must be up to date, linear history, conversation resolution, no force-push or
+deletion, enforced for admins. 0 approvals required (solo maintainer; GitHub forbids self-approval).
+Rebase merge is the only merge method; merged branches are auto-deleted.
+
+**Verified:** CI green on the PR and on `main` after merge; protection settings read back from the
+GitHub API.
+
+**Next agent:** unchanged. Live verification is blocked on a valid Gemini key (and Jira site / Slack
+token rotation; see Known issues). All changes now go through a PR.
 
 ### 2026-10-13: Claude (Opus 5.5) · v2 rebuild + project infrastructure
 **Changed:** removed the v1 code (`jira_helper.py`, `langchain_helper.py`, `requirements.txt`); rewrote the service into `src/jira_service` (label-based idempotent sync, REST v3,
