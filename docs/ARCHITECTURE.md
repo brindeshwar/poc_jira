@@ -1,0 +1,68 @@
+# Architecture: Jira Task Service
+
+## Context
+
+The meeting hub sends structured action items to `POST /tasks`. The service can also extract them
+from a raw transcript (`POST /tasks/from-transcript`). It writes to Jira Cloud through REST API v3.
+The request and response contract is in the hub's
+[`docs/INTEGRATION.md`](https://github.com/brindeshwar/poc_mcp/blob/main/docs/INTEGRATION.md).
+
+## Components
+
+```
+HTTP ─► api.py ──(Depends)──► TaskSyncService (sync.py) ──► JiraAPI (jira_api.py) ──httpx──► Jira Cloud
+            │
+            └──(Depends)──► GeminiExtractor (extractor.py)  [only /tasks/from-transcript]
+```
+
+`get_sync_service` and `get_extractor` are cached dependency providers, so tests swap them with
+`app.dependency_overrides`. `require_api_key` guards every write endpoint when `SERVICE_API_KEY` is set.
+
+## Sync algorithm (per action item)
+
+```
+label   = "ai-task-" + sha1(f"{meeting_id or ''}|{lowercase, whitespace-collapsed summary}")[:12]
+existing = search(project = KEY AND labels = label)              # exact match, injection-safe
+account  = the one active human user matching `assignee`, else None (+ warning)
+fields   = summary, description (ADF; adds the owner if unresolved, plus the meeting title), duedate?, assignee?
+
+if existing:   update(existing, fields minus {summary, labels})   → "updated"     (dry run: "would_update")
+else:          create(fields + labels [from-meeting, label])      → "created"     (dry run: "would_create")
+on JiraAPIError: "failed" with Jira's message; other items continue
+```
+
+**Why scope the label by meeting?** The same summary in two meetings ("Follow up with client") is
+usually different work. Scoping by `meeting_id` makes re-sending a meeting idempotent without ever
+merging tickets across meetings. Without a `meeting_id` (raw transcript endpoint), identity is the
+summary alone.
+
+**Why not update the summary?** It defines the identity. Changing it would break the label mapping
+for readers.
+
+## Jira API usage
+
+| Purpose | Call |
+|---|---|
+| Find existing task | `POST /rest/api/3/search/jql` `{jql, fields:["summary"], maxResults:1}` |
+| Resolve assignee | `GET /rest/api/3/user/search?query=<name or email>&maxResults=5` |
+| Create | `POST /rest/api/3/issue` `{fields}` |
+| Update | `PUT /rest/api/3/issue/{key}` `{fields}` |
+
+Auth: Basic (email + API token). Error messages are parsed from `errorMessages`, `errors{field:msg}`
+and gateway-level `errorMessage`.
+
+## Endpoints
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `GET /health` | none | liveness |
+| `POST /tasks` | API key (if set) | 1–50 items; used by the hub |
+| `POST /tasks/from-transcript` | API key | `meeting_date` resolves "by Friday" etc.; 502 on extraction failure; 503 without `GOOGLE_API_KEY` |
+| `POST /create-jira-tasks` | API key | v1 plain-text body; deprecated |
+
+## Changes from v1
+
+v1 matched existing tickets with a fuzzy `summary ~` search and updated the first hit, so it could
+overwrite unrelated tickets. Updates cleared due dates and assignees that weren't mentioned, and LLM
+errors became "no action items". It also built JQL from raw text and used the `jira` library's
+search API, which Atlassian has since removed. See `CHANGELOG.md` 0.2.0.
