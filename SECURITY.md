@@ -2,8 +2,8 @@
 
 ## Reporting a vulnerability
 
-Please do not open a public issue. Once this repository is on GitHub, use its private security
-advisory form. Until then, contact the maintainer directly.
+Please **do not** open a public issue. Use GitHub's private
+[security advisory form](../../security/advisories/new) or email the maintainer.
 
 ## Supported versions
 

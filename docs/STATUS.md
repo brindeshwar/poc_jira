@@ -15,16 +15,11 @@
 
 ## Current version
 
-`0.2.0` (unreleased; branch `refactor/v2-connected-system`). The repo was first put under git on
-2026-10-13 and has **no GitHub remote yet**.
+`0.2.0` (unreleased; branch `refactor/v2-connected-system`). Published at https://github.com/brindeshwar/poc_jira on 2026-10-13 (`main` = v0.1.0).
 
 ## Known issues / blockers
 
-1. **No GitHub repository.** Create one, then
-   `git remote add origin https://github.com/<you>/poc_jira.git && git push -u origin main`, and
-   add a CI badge to the README, version-compare links to `CHANGELOG.md`, and a security link to
-   `.github/ISSUE_TEMPLATE/config.yml`.
-2. **Jira site unavailable.** The configured Atlassian site returns 404. Create a new free Jira
+1. **Jira site unavailable.** The configured Atlassian site returns 404. Create a new free Jira
    Cloud site and API token and update `.env`.
 
 ## Backlog (prioritized)
@@ -54,11 +49,11 @@
 **Changed:** removed the v1 code (`jira_helper.py`, `langchain_helper.py`, `requirements.txt`); rewrote the service into `src/jira_service` (label-based idempotent sync, REST v3,
 API-key auth, dry run, 502 on extraction errors). Added tests with a fake Jira, and project
 infrastructure (AGENTS/CLAUDE/docs, CI, pre-commit + gitleaks, Dependabot, templates, Dockerfile,
-MIT license, CHANGELOG). Ran `git init` (local only).
+MIT license, CHANGELOG). Ran `git init`, published the repo to GitHub (public), and opened the v2 PR.
 
 **Verified:** 19 tests; ruff; the service running locally answered `/health`; a dry run against the
 configured Jira produced a clean per-item failure (site unavailable).
 
 **Not verified:** real ticket creation, real Gemini extraction.
 
-**Next agent:** Known issues #1–#3, then Backlog #1.
+**Next agent:** Known issue #1 (new Jira site), then Backlog #1.
