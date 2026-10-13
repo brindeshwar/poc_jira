@@ -6,7 +6,7 @@
 
 | Check | State | As of |
 |---|---|---|
-| Tests (sync logic, API, auth, errors) | ✅ 19 passing | 2026-10-13 |
+| Tests (sync logic, API, auth, errors, call budget, retries) | ✅ 26 passing (3.12–3.14) | 2026-10-13 |
 | Lint / format | ✅ clean | 2026-10-13 |
 | Service starts; `/health` | ✅ verified | 2026-10-13 |
 | Real Jira (dry run) | ⛔ Jira site returned 404 "Site temporarily unavailable" | 2026-10-13 |
@@ -15,7 +15,7 @@
 
 ## Current version
 
-`0.2.0`, released 2026-10-13 (tag `v0.2.0`, GitHub release). Published at https://github.com/brindeshwar/poc_jira on 2026-10-13 (`main` = v0.1.0).
+`0.3.0` (2026-10-13): flash-lite model, bulk/batched Jira sync, retries. Published at https://github.com/brindeshwar/poc_jira on 2026-10-13 (`main` = v0.1.0).
 
 ## Known issues / blockers
 
@@ -26,11 +26,10 @@
 
 | # | Item | Notes |
 |---|---|---|
-| 1 | Live dry run, then a real run, against a fresh Jira site | verify ADF, labels, user search |
+| 1 | Live dry run, then a real run, against a fresh Jira site | verify ADF, labels, user search, bulk create |
 | 2 | Configurable label prefix / extra labels / components | per-team conventions |
-| 3 | Retry with backoff on Jira 429/5xx | respect `Retry-After` |
-| 4 | Transition tickets to Done when the meeting marks an item complete | needs a "completed" signal from the hub |
-| 5 | Async endpoints with `httpx.AsyncClient` | only if throughput matters |
+| 3 | Transition tickets to Done when the meeting marks an item complete | needs a "completed" signal from the hub |
+| 4 | Async endpoints with `httpx.AsyncClient` | only if throughput matters |
 
 ## Decision log
 
@@ -43,8 +42,24 @@
 | 2026-10-13 | Per-item failures inside a 200 response | one bad item shouldn't block the others |
 | 2026-10-13 | Keep the v1 `/create-jira-tasks` endpoint (deprecated) | backward compatibility for existing demos |
 | 2026-10-13 | Protect `main`: PR + 5 required checks, linear history, rebase-only merges, 0 approvals | keeps `main` always green; linear history keeps the Conventional Commits readable; solo maintainer can't self-approve |
+| 2026-10-13 | `gemini-3.5-flash-lite`, thinking `low` for extraction | 2.5 models closed to new users; Flash-Lite is the cheap/fast stable tier; `low` thinking resolves relative dates reliably |
+| 2026-10-13 | One label search + bulk create per request | O(1) round trips instead of O(N); Jira rate limits are per call |
+| 2026-10-13 | Retry 429/5xx with `Retry-After` (3 attempts) | Jira Cloud throttles bursts; transient 5xx shouldn't fail a meeting |
 
 ## Handoff log
+
+### 2026-10-13: Claude (Opus 5.5) · v0.3.0 modernisation
+**Changed:** model → `gemini-3.5-flash-lite` with a thinking level; sync now does 1 search + cached
+assignee lookups + bulk create (≤ 50) + per-item updates; retries with `Retry-After`; duplicates in a
+request share one ticket. **Fixed** a latent bug: updates sent `project`/`issuetype`, which Jira rejects on
+edit (the fake Jira now enforces it). Python 3.14 in CI and Docker.
+
+**Verified:** 26 tests on 3.13 and 3.14 (call-count assertions, partial bulk failure, 51-item batching,
+429 retry); ruff; pre-commit.
+
+**Not verified:** real Jira (site unavailable) and real Gemini.
+
+**Next agent:** Backlog #1 once a Jira site exists.
 
 ### 2026-10-13: Claude (Opus 5.5) · dependency upgrades (Dependabot triage)
 **Changed:** upgraded `google-genai` to 2.x. CI actions moved to their Node 24 majors.

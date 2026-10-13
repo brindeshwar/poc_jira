@@ -39,8 +39,8 @@ Read next: `docs/ARCHITECTURE.md` (sync algorithm, Jira API usage), `docs/STATUS
 ```
 src/jira_service/
   api.py        FastAPI routes, X-API-Key check, dependency providers (get_sync_service, get_extractor)
-  sync.py       TaskSyncService: label lookup → create or partial update; assignee resolution; dry run
-  jira_api.py   JiraAPI: thin httpx client for Jira Cloud REST v3 + to_adf() + error-message parsing
+  sync.py       TaskSyncService: one label search → bulk create / partial update; cached assignee lookups; dry run
+  jira_api.py   JiraAPI: httpx client for Jira Cloud REST v3 (retry/backoff, bulk create) + to_adf()
   extractor.py  GeminiExtractor: transcript → ActionItem[] (structured output), date-aware prompt
   models.py     ActionItem (shared contract), SyncRequest, TranscriptRequest, TaskResult, SyncResponse
   config.py     Settings: the ONLY place env vars are read; project key is pattern-validated
@@ -54,7 +54,8 @@ main.py         compatibility shim so `uvicorn main:app` still works
    summary)[:12]>`. Look up by exact label, never by fuzzy summary search. (v1 used `summary ~` and
    could overwrite unrelated tickets.)
 2. **Never clear fields.** Updates only send fields the request provides. A missing due date or
-   assignee leaves Jira's value alone. Summary and labels are never changed on update.
+   assignee leaves Jira's value alone. Summary, labels, project and issue type are never sent on update
+   (Jira rejects `project`/`issuetype` edits).
 3. **Assign only on an unambiguous match:** exactly one active `atlassian` (human) account.
    Otherwise leave it unassigned and add a `warnings` entry.
 4. **JQL safety.** Only validated values go into JQL (project key matches `^[A-Z][A-Z0-9_]{1,19}$`,
@@ -67,6 +68,11 @@ main.py         compatibility shim so `uvicorn main:app` still works
    with that doc, the hub, and a BREAKING changelog entry.
 7. **Jira API v3** uses Atlassian Document Format for descriptions (`to_adf`) and
    `POST /search/jql` for search (the old `/search` endpoint is removed in Jira Cloud).
+
+**Efficiency:** keep the call budget in `docs/ARCHITECTURE.md` (one search per request, bulk create,
+cached lookups). Don't add per-item round trips.
+
+**Model:** `GEMINI_MODEL` (default `gemini-3.5-flash-lite`) with `GEMINI_THINKING_LEVEL` (default `low`).
 
 **Tests:** no network. Use `FakeJira` (`tests/conftest.py`), which implements the subset of Jira
 REST v3 we call. Extend it when you call a new endpoint. Bug fixes include a regression test.
