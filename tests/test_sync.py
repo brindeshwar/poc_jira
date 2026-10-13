@@ -79,12 +79,67 @@ def test_dry_run_reports_without_writing(sync_service, fake_jira):
 
 
 def test_jira_errors_fail_only_that_item(sync_service, fake_jira):
-    fake_jira.fail_create = True
-    response = sync_service.sync([ROLLBACK], meeting_id="m1")
-    [result] = response.results
-    assert result.status == "failed"
-    assert "duedate: Invalid date" in result.message
-    assert response.message == "1 failed."
+    fake_jira.fail_summaries = {ROLLBACK.summary}
+    response = sync_service.sync([ROLLBACK, ActionItem(summary="Other task")], meeting_id="m1")
+    failed, ok = response.results
+    assert failed.status == "failed"
+    assert "duedate: Invalid date" in failed.message
+    assert ok.status == "created" and ok.jira_key == "POC-1"
+    assert response.message == "1 created, 1 failed."
+
+
+def test_all_bulk_elements_failing_is_reported_per_item(sync_service, fake_jira):
+    fake_jira.fail_summaries = {ROLLBACK.summary}
+    [result] = sync_service.sync([ROLLBACK], meeting_id="m1").results
+    assert result.status == "failed" and "duedate: Invalid date" in result.message
+
+
+def test_many_items_use_one_search_and_one_bulk_create(sync_service, fake_jira):
+    items = [ActionItem(summary=f"Task {n}", assignee="Eve") for n in range(10)]
+    response = sync_service.sync(items, meeting_id="m1")
+
+    assert [r.status for r in response.results] == ["created"] * 10
+    assert fake_jira.count("POST", "/search/jql") == 1
+    assert fake_jira.count("POST", "/issue/bulk") == 1
+    assert fake_jira.count("GET", "/user/search") == 1  # same assignee looked up once
+    assert [r.jira_key for r in response.results] == [f"POC-{n}" for n in range(1, 11)]
+
+
+def test_more_than_fifty_new_items_are_batched(sync_service, fake_jira):
+    items = [ActionItem(summary=f"Task {n}") for n in range(51)]
+    response = sync_service.sync(items, meeting_id="m1")
+    assert fake_jira.count("POST", "/issue/bulk") == 2
+    assert len({r.jira_key for r in response.results}) == 51
+
+
+def test_update_sends_only_editable_fields(sync_service, fake_jira):
+    sync_service.sync([ROLLBACK], meeting_id="m1")
+    [result] = sync_service.sync([ROLLBACK], meeting_id="m1").results
+    # Real Jira rejects `project`/`issuetype` on edit; the fake does too.
+    assert result.status == "updated"
+    assert fake_jira.writes == [("create", "POC-1"), ("update", "POC-1")]
+
+
+def test_duplicate_items_in_one_request_create_one_ticket(sync_service, fake_jira):
+    response = sync_service.sync([ROLLBACK, ROLLBACK], meeting_id="m1")
+    first, dup = response.results
+    assert first.jira_key == dup.jira_key == "POC-1"
+    assert "Duplicate" in dup.warnings[0]
+    assert len(fake_jira.issues) == 1
+
+
+def test_rate_limits_are_retried_honouring_retry_after(sync_service, fake_jira):
+    fake_jira.throttle_next = 2
+    [result] = sync_service.sync([ActionItem(summary="Task")], meeting_id="m1").results
+    assert result.status == "created"
+    assert fake_jira.sleeps == [2.0, 2.0]
+
+
+def test_persistent_rate_limit_fails_cleanly(sync_service, fake_jira):
+    fake_jira.throttle_next = 10
+    [result] = sync_service.sync([ActionItem(summary="Task")], meeting_id="m1").results
+    assert result.status == "failed" and "429" in result.message
+    assert len(fake_jira.sleeps) == 2  # MAX_ATTEMPTS = 3
 
 
 def test_gateway_error_message_is_readable(fake_jira, sync_service):
