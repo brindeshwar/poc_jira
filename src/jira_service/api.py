@@ -40,7 +40,11 @@ def get_extractor() -> ActionItemExtractor:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Transcript extraction needs GOOGLE_API_KEY."
         )
-    return GeminiExtractor(settings.google_api_key.get_secret_value(), settings.gemini_model)
+    return GeminiExtractor(
+        settings.google_api_key.get_secret_value(),
+        settings.gemini_model,
+        settings.gemini_thinking_level,
+    )
 
 
 def require_api_key(x_api_key: str | None = Header(default=None)) -> None:

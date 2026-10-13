@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -15,7 +16,9 @@ class Settings(BaseSettings):
     jira_issue_type: str = "Task"
 
     google_api_key: SecretStr | None = None
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.5-flash-lite"
+    # A little reasoning helps resolve "by Friday" etc.; minimal | low | medium | high.
+    gemini_thinking_level: Literal["minimal", "low", "medium", "high"] = "low"
 
     # When set, callers must send it in the X-API-Key header (the MCP hub does).
     service_api_key: SecretStr | None = None

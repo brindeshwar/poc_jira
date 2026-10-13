@@ -24,9 +24,12 @@ An action item is a concrete task someone committed to. Return an empty list if 
 
 
 class GeminiExtractor:
-    def __init__(self, api_key: str, model: str) -> None:
+    def __init__(self, api_key: str, model: str, thinking_level: str = "low") -> None:
         self._client = genai.Client(api_key=api_key)
         self._model = model
+        self._thinking = types.ThinkingConfig(
+            thinking_level=types.ThinkingLevel(thinking_level.upper())
+        )
 
     def extract(self, transcript: str, meeting_date: date) -> list[ActionItem]:
         friday = meeting_date + timedelta(days=(4 - meeting_date.weekday()) % 7)
@@ -44,6 +47,7 @@ class GeminiExtractor:
                 config=types.GenerateContentConfig(
                     system_instruction=system,
                     temperature=0,
+                    thinking_config=self._thinking,
                     response_mime_type="application/json",
                     response_json_schema=ExtractedActionItems.model_json_schema(),
                 ),
