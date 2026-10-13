@@ -5,6 +5,11 @@ All notable changes to this project are documented here. Format:
 
 ## [Unreleased]
 
+### Changed
+- Upgraded `google-genai` to 2.x (its breaking changes only affect the Interactions API, which isn't used).
+- CI actions moved to their Node 24 versions (`checkout@v7`, `setup-uv@v7`, `setup-buildx-action@v4`,
+  `build-push-action@v7`, `gitleaks-action@v3`). Node 20 was removed from GitHub-hosted runners.
+
 ## [0.2.0] - 2026-10-13
 
 Rewrite as an idempotent service called by the ListenLoom meeting hub.
