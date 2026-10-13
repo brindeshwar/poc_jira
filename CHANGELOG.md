@@ -5,10 +5,26 @@ All notable changes to this project are documented here. Format:
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-13
+
 ### Changed
+- Default model is now `gemini-3.5-flash-lite` with `GEMINI_THINKING_LEVEL` (default `low`). Google
+  restricts the 2.5 models to existing users, so new API keys get a 404 on `gemini-2.5-flash`.
+- **Fewer Jira calls per request:** one `labels in (...)` search for all items, assignee lookups cached
+  per distinct name, and new items created with `POST /issue/bulk` (≤ 50 per call). 10 new items: 30
+  calls → about 3.
+- Python 3.14 added to CI; the Docker image now uses Python 3.14.
 - Upgraded `google-genai` to 2.x (its breaking changes only affect the Interactions API, which isn't used).
 - CI actions moved to their Node 24 versions (`checkout@v7`, `setup-uv@v7`, `setup-buildx-action@v4`,
   `build-push-action@v7`, `gitleaks-action@v3`). Node 20 was removed from GitHub-hosted runners.
+
+### Added
+- Retries with backoff for Jira 429/502/503/504, honouring `Retry-After`.
+- Duplicate action items in one request map to a single ticket (reported for each, with a warning).
+
+### Fixed
+- Updating an existing ticket sent `project` and `issuetype`, which Jira rejects on edit, so every
+  update would have failed against real Jira. The fake Jira in the tests now enforces this too.
 
 ## [0.2.0] - 2026-10-13
 
@@ -46,6 +62,7 @@ Rewrite as an idempotent service called by the ListenLoom meeting hub.
 
 - Initial internship proof of concept.
 
-[Unreleased]: https://github.com/brindeshwar/poc_jira/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/brindeshwar/poc_jira/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/brindeshwar/poc_jira/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/brindeshwar/poc_jira/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/brindeshwar/poc_jira/releases/tag/v0.1.0

@@ -18,18 +18,29 @@ HTTP ─► api.py ──(Depends)──► TaskSyncService (sync.py) ──► 
 `get_sync_service` and `get_extractor` are cached dependency providers, so tests swap them with
 `app.dependency_overrides`. `require_api_key` guards every write endpoint when `SERVICE_API_KEY` is set.
 
-## Sync algorithm (per action item)
+## Sync algorithm (per request)
 
 ```
-label   = "ai-task-" + sha1(f"{meeting_id or ''}|{lowercase, whitespace-collapsed summary}")[:12]
-existing = search(project = KEY AND labels = label)              # exact match, injection-safe
-account  = the one active human user matching `assignee`, else None (+ warning)
-fields   = summary, description (ADF; adds the owner if unresolved, plus the meeting title), duedate?, assignee?
+label(item) = "ai-task-" + sha1(f"{meeting_id or ''}|{lowercase, whitespace-collapsed summary}")[:12]
+group items by label                                   # duplicates in one request → one ticket
 
-if existing:   update(existing, fields minus {summary, labels})   → "updated"     (dry run: "would_update")
-else:          create(fields + labels [from-meeting, label])      → "created"     (dry run: "would_create")
-on JiraAPIError: "failed" with Jira's message; other items continue
+existing = search(project = KEY AND labels in (all labels))        # ONE call, injection-safe
+for each distinct item:
+    account = the one active human user matching `assignee`        # cached per distinct name
+    fields  = summary, description (ADF; owner if unresolved, meeting title), duedate?, assignee?
+    if label in existing:  update(key, fields minus {summary, project, issuetype})  → "updated"
+    else:                  queue for creation                                       → "created"
+bulk_create(queued, 50 per call)        # POST /issue/bulk; per-element failures → "failed"
+dry run: same reads, zero writes        → "would_update" / "would_create"
 ```
+
+**Call budget:** for N items with A distinct assignees, E of them existing: `1 search + A lookups +
+ceil((N−E)/50) bulk creates + E updates`. v0.2 needed `N searches + N lookups + N creates`, so 10 new items
+went from 30 calls to about 3.
+
+**Resilience:** every call retries 429/502/503/504 up to 3 attempts. It honours `Retry-After` (capped
+at 30s) and otherwise backs off 0.5s → 1s. A failing search fails every item with the reason; a failing
+bulk call fails just that batch.
 
 **Why scope the label by meeting?** The same summary in two meetings ("Follow up with client") is
 usually different work. Scoping by `meeting_id` makes re-sending a meeting idempotent without ever
@@ -43,9 +54,9 @@ for readers.
 
 | Purpose | Call |
 |---|---|
-| Find existing task | `POST /rest/api/3/search/jql` `{jql, fields:["summary"], maxResults:1}` |
+| Find existing tasks | `POST /rest/api/3/search/jql` `{jql: labels in (...), fields:["labels"]}` |
 | Resolve assignee | `GET /rest/api/3/user/search?query=<name or email>&maxResults=5` |
-| Create | `POST /rest/api/3/issue` `{fields}` |
+| Create (bulk, ≤ 50) | `POST /rest/api/3/issue/bulk` `{issueUpdates:[{fields}]}` → `issues[]` + `errors[].failedElementNumber` |
 | Update | `PUT /rest/api/3/issue/{key}` `{fields}` |
 
 Auth: Basic (email + API token). Error messages are parsed from `errorMessages`, `errors{field:msg}`
