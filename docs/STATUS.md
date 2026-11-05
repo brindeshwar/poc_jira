@@ -41,7 +41,7 @@
 | 2026-10-13 | Direct REST v3 via httpx instead of the `jira` library | old search endpoint removed by Atlassian; easy to fake in tests |
 | 2026-10-13 | Per-item failures inside a 200 response | one bad item shouldn't block the others |
 | 2026-10-13 | Keep the v1 `/create-jira-tasks` endpoint (deprecated) | backward compatibility for existing demos |
-| 2026-10-13 | Protect `main`: PR + 5 required checks, linear history, rebase-only merges, 0 approvals | keeps `main` always green; linear history keeps the Conventional Commits readable; solo maintainer can't self-approve |
+| 2026-10-13 | Protect `main`: PR + required checks (5, then 6 with Python 3.14), linear history, rebase-only merges, 0 approvals | keeps `main` always green; linear history keeps the Conventional Commits readable; solo maintainer can't self-approve |
 | 2026-10-13 | `gemini-3.5-flash-lite`, thinking `low` for extraction | 2.5 models closed to new users; Flash-Lite is the cheap/fast stable tier; `low` thinking resolves relative dates reliably |
 | 2026-10-13 | One label search + bulk create per request | O(1) round trips instead of O(N); Jira rate limits are per call |
 | 2026-10-13 | Retry 429/5xx with `Retry-After` (3 attempts) | Jira Cloud throttles bursts; transient 5xx shouldn't fail a meeting |
